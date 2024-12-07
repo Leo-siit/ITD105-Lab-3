@@ -1,7 +1,7 @@
 import streamlit as st
 import extra_streamlit_components as stx
 import pandas as pd
-import matplotlib.pyplot as plt
+import altair as alt
 import numpy as np
 from cv_chooser import cv_chooser
 import regressors as rgr
@@ -27,88 +27,103 @@ if 'cv_confirmed' not in st.session_state:
 if 'previous_scores' not in st.session_state:
     st.session_state.previous_scores = {}
 
-def display_comparison_results(results):
+def display_comparison_results(results, model_type):
     """
-    Display model comparison results with changes and visualizations.
+    Display model comparison results with changes and visualizations using Altair.
     """
-    st.header("Model Comparison Results")
+    metric_name = "Accuracy (%)" if model_type == "Classification" else "Mean Absolute Error (MAE)"
+    st.header(f"Model Comparison Results ({metric_name})")
 
     # Calculate changes compared to previous scores
     changes = {}
     for model, score in results.items():
-        # Extract the first element if score is a tuple
-        score = score[0] if isinstance(score, tuple) else score
-        
+        score_value = score[0] if isinstance(score, tuple) else score
         previous_score = st.session_state.previous_scores.get(model, None)
-        # Extract the first element if previous_score is a tuple
-        previous_score = previous_score[0] if isinstance(previous_score, tuple) else previous_score
-        
-        changes[model] = score - previous_score if previous_score is not None else 0.0
+        previous_value = previous_score[0] if isinstance(previous_score, tuple) else previous_score
+        changes[model] = score_value - (previous_value if previous_value is not None else 0.0)
 
     # Update the previous scores in session state
     st.session_state.previous_scores = results
 
-    # Define formatting functions
-    def format_arrow(val):
-        return f"{'↑' if val > 0 else '↓'} {abs(val):.0f}%" if val != 0 else f"{val:.0f}%"
-
-    def color_arrow(val):
-        return "color: green" if val > 0 else "color: red" if val < 0 else "color: yellow"
-
     # Convert results and changes to a DataFrame
     results_df = pd.DataFrame(
-        # Extract first element if result is a tuple
-        [(model, (score[0] if isinstance(score, tuple) else score) * 100, 
-          changes[model] * 100) for model, score in results.items()],
-        columns=["Model", "Accuracy Score", "Change"]
+        [(model,
+          (score[0] if isinstance(score, tuple) else score) * (100 if model_type == "Classification" else 1),
+          changes[model] * (100 if model_type == "Classification" else 1))
+            for model, score in results.items()],
+        columns=["Model", metric_name, "Change"]
     )
 
-    # Sort results by score (descending)
-    results_df = results_df.sort_values(by="Accuracy Score", ascending=False).reset_index(drop=True)
+    # Sort results by metric value in descending order
+    results_df = results_df.sort_values(by=metric_name, ascending=(model_type == "Regression")).reset_index(drop=True)
 
-    # Display the DataFrame with custom formatting
+    # Create a formatted change column with arrows and colors
+    def format_change(change):
+        if change > 0:
+            return f"↑ {change:.2f}", "green"
+        elif change < 0:
+            return f"↓ {abs(change):.2f}", "red"
+        else:
+            return "→ 0.00", "gray"
+
+    # Apply formatting to the Change column
+    results_df["Formatted_Change"] = results_df["Change"].apply(format_change)
+    
+    # Create a styled dataframe
+    styled_df = results_df.copy()
+    styled_df["Change"] = styled_df["Formatted_Change"].apply(lambda x: x[0])
+    
+    # Display the DataFrame
     st.subheader("Results Table")
-    
-    # Apply styling to the DataFrame
-    styled_df = results_df.style.format({
-        "Accuracy Score": "{:.2f}%",
-        "Change": format_arrow
-    }).applymap(color_arrow, subset=["Change"])
-    
-    st.dataframe(styled_df, use_container_width=True)
+    st.dataframe(styled_df[["Model", metric_name, "Change"]], use_container_width=True)
 
-    # Visualize results with a bar chart
+    # Visualize results with Altair bar chart
     st.subheader("Results Visualization")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    bars = ax.bar(results_df["Model"], results_df["Accuracy Score"], color="skyblue")
-    ax.set_ylabel("Accuracy Score (%)")
-    ax.set_xlabel("Model")
-    ax.set_title("Model Performance Comparison")
-    plt.xticks(rotation=45, ha="right")
+    base = alt.Chart(results_df).encode(
+        x=alt.X('Model', sort=None),
+        tooltip=['Model', metric_name, 'Change']
+    )
 
-    # Add annotations to bars
-    for bar, score in zip(bars, results_df["Accuracy Score"]):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height(),
-            f"{score:.2f}%",
-            ha="center",
-            va="bottom",
-            fontsize=10,
-            color="black",
+    bars = base.mark_bar().encode(
+        y=alt.Y(metric_name, sort='-x'),
+        color=alt.Color('Change:Q', 
+            scale=alt.Scale(
+                domain=[-max(abs(results_df['Change'])), 0, max(abs(results_df['Change']))],
+                range=['red', 'lightgray', 'green']
+            )
         )
+    )
 
-    st.pyplot(fig)
+    text = base.mark_text(
+        align='center',
+        baseline='bottom',
+        dy=-5
+    ).encode(
+        text=alt.Text(f'{metric_name}:Q', format='.2f')
+    )
+
+    changes = base.mark_text(
+        align='center',
+        baseline='top',
+        dy=10
+    ).encode(
+        text=alt.Text('Change:Q', format='+.2f'),
+        color=alt.condition(
+            'datum.Change > 0',
+            alt.value('#90EE90'),
+            alt.value('maroon')
+        )
+    )
+
+    st.altair_chart((bars + text + changes).properties(width=600, height=400, title=f"Model Performance Comparison ({metric_name})"), use_container_width=True)
+
 
 def main():
-    # Create a stepper bar with three steps: Upload Data, Select Sampling Method, Train Models
     step = stx.stepper_bar(steps=["Upload Data", "Select Sampling Method", "Train Models"])
-    
-    # Update the current step based on user interaction
+
     if step != st.session_state.step:
         st.session_state.step = step
 
-    # Step 0: Upload Data
     if st.session_state.step == 0:
         uploaded_file = st.file_uploader("Upload Data", type=['csv'])
         if uploaded_file is not None:
@@ -116,7 +131,7 @@ def main():
         if st.session_state.DF is not None:
             columns = list(st.session_state.DF.columns)
             st.session_state.result_col = st.selectbox(
-                "Select Y Column", 
+                "Select Y Column",
                 columns,
                 index=columns.index(st.session_state.result_col) if st.session_state.result_col in columns else 0
             )
@@ -124,7 +139,6 @@ def main():
             if st.session_state.result_col:
                 st.info("You can now proceed to the next step by clicking on 'Select Sampling Method' above.")
 
-    # Step 1: Select Sampling Method
     elif st.session_state.step == 1:
         if st.session_state.DF is not None:
             cv_chooser()
@@ -135,19 +149,14 @@ def main():
         else:
             st.warning("Please upload data first")
 
-    # Step 2: Train Models
     elif st.session_state.step == 2:
         if st.session_state.DF is not None and st.session_state.cv is not None:
             with st.sidebar:
                 model_type = st.radio("Select model type:", ["Regression", "Classification"])
                 models = []
-                pkg = None
-                if model_type == "Regression":
-                    pkg = rgr
-                    models = rgr.MODEL_MAPPING.keys()
-                else:
-                    pkg = clf
-                    models = clf.MODEL_MAPPING.keys()
+                pkg = rgr if model_type == "Regression" else clf
+                models = pkg.MODEL_MAPPING.keys()
+
                 for model_name in models:
                     expander = st.expander(model_name)
                     with expander:
@@ -158,12 +167,13 @@ def main():
             results = {}
             for model_name in models:
                 model = pkg.create_model(model_name)
-                accuracy = pkg.score_model(model, X, y, st.session_state.cv)
-                results[model_name] = accuracy
+                accuracy_or_mae = pkg.score_model(model, X, y, st.session_state.cv)
+                results[model_name] = accuracy_or_mae
 
-            display_comparison_results(results)
+            display_comparison_results(results, model_type)
         else:
             st.warning("Please upload data and select sampling method first")
+
 
 if __name__ == "__main__":
     main()
