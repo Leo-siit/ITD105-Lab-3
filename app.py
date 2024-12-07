@@ -2,10 +2,12 @@ import streamlit as st
 import extra_streamlit_components as stx
 import pandas as pd
 import altair as alt
-import numpy as np
+import os
+import tempfile
 from cv_chooser import cv_chooser
 import regressors as rgr
 import classifiers as clf
+import joblib
 
 # Initialize session state variables if they are not already set
 if 'DF' not in st.session_state:
@@ -26,6 +28,47 @@ if 'cv_confirmed' not in st.session_state:
     st.session_state.cv_confirmed = False
 if 'previous_scores' not in st.session_state:
     st.session_state.previous_scores = {}
+if 'trained_models' not in st.session_state:
+    st.session_state.trained_models = {}
+if 'current_results' not in st.session_state:
+    st.session_state.current_results = None
+if 'current_model_type' not in st.session_state:
+    st.session_state.current_model_type = None
+
+def download_model(model, model_name):
+    """
+    Create a downloadable model file using temporary file with proper cleanup
+    """
+    temp_file = None
+    try:
+        # Create temp file with a unique name
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.joblib')
+        temp_path = temp_file.name
+        temp_file.close()  # Close file handle immediately
+        
+        # Save model
+        joblib.dump(model, temp_path)
+        
+        # Read file for download
+        with open(temp_path, 'rb') as f:
+            model_bytes = f.read()
+            
+        # Create download button
+        st.download_button(
+            label=f"Download {model_name}",
+            data=model_bytes,
+            file_name=f"{model_name.replace(' ', '_')}_model.joblib",
+            mime="application/octet-stream"
+        )
+    except Exception as e:
+        st.error(f"Error saving model: {str(e)}")
+    finally:
+        # Clean up temp file in finally block
+        if temp_file:
+            try:
+                os.unlink(temp_path)
+            except:
+                pass  # Ignore cleanup errors
 
 def display_comparison_results(results, model_type):
     """
@@ -68,11 +111,11 @@ def display_comparison_results(results, model_type):
 
     # Apply formatting to the Change column
     results_df["Formatted_Change"] = results_df["Change"].apply(format_change)
-    
+
     # Create a styled dataframe
     styled_df = results_df.copy()
     styled_df["Change"] = styled_df["Formatted_Change"].apply(lambda x: x[0])
-    
+
     # Display the DataFrame
     st.subheader("Results Table")
     st.dataframe(styled_df[["Model", metric_name, "Change"]], use_container_width=True)
@@ -117,7 +160,6 @@ def display_comparison_results(results, model_type):
 
     st.altair_chart((bars + text + changes).properties(width=600, height=400, title=f"Model Performance Comparison ({metric_name})"), use_container_width=True)
 
-
 def main():
     step = stx.stepper_bar(steps=["Upload Data", "Select Sampling Method", "Train Models"])
 
@@ -149,31 +191,69 @@ def main():
         else:
             st.warning("Please upload data first")
 
+    # Modify step 2 section
     elif st.session_state.step == 2:
         if st.session_state.DF is not None and st.session_state.cv is not None:
-            with st.sidebar:
-                model_type = st.radio("Select model type:", ["Regression", "Classification"])
-                models = []
-                pkg = rgr if model_type == "Regression" else clf
-                models = pkg.MODEL_MAPPING.keys()
+            # Model type selection in sidebar
+            model_type = st.sidebar.radio("Select model type:", ["Regression", "Classification"])
+            pkg = rgr if model_type == "Regression" else clf
+            
+            # Create tabs for training and downloading
+            train_tab, download_tab = st.tabs(["Train Models", "Download Models"])
+            
+            with train_tab:
+                with st.form(key="training_form"):
+                    st.subheader("Model Parameters")
+                    selected_models = []
+                    for model_name in pkg.MODEL_MAPPING.keys():
+                        if st.checkbox(f"Train {model_name}", key=f"train_{model_name}"):
+                            selected_models.append(model_name)
+                            with st.expander(f"{model_name} Parameters"):
+                                pkg.MODEL_PARAMS[model_name]()
+                    
+                    train_button = st.form_submit_button("Train Selected Models")
+                    
+                    if train_button and selected_models:
+                        X = st.session_state.DF.drop(columns=[st.session_state.result_col])
+                        y = st.session_state.DF[st.session_state.result_col]
+                        results = {}
+                        
+                        st.session_state.trained_models = {}
+                        
+                        with st.spinner('Training models...'):
+                            for model_name in selected_models:
+                                model = pkg.create_model(model_name)
+                                accuracy_or_mae = pkg.score_model(model, X, y, st.session_state.cv)
+                                results[model_name] = accuracy_or_mae
+                                
+                                trained_model = model.fit(X, y)
+                                st.session_state.trained_models[model_name] = trained_model
+                            
+                            # Store results in session state
+                            st.session_state.current_results = results
+                            st.session_state.current_model_type = model_type
+                            display_comparison_results(results, model_type)
 
-                for model_name in models:
-                    expander = st.expander(model_name)
-                    with expander:
-                        pkg.MODEL_PARAMS[model_name]()
-
-            X = st.session_state.DF.drop(columns=[st.session_state.result_col])
-            y = st.session_state.DF[st.session_state.result_col]
-            results = {}
-            for model_name in models:
-                model = pkg.create_model(model_name)
-                accuracy_or_mae = pkg.score_model(model, X, y, st.session_state.cv)
-                results[model_name] = accuracy_or_mae
-
-            display_comparison_results(results, model_type)
+            with download_tab:
+                if st.session_state.current_results:
+                    st.header("Model Performance Comparison")
+                    display_comparison_results(st.session_state.current_results, st.session_state.current_model_type)
+                    
+                    st.header("Download Trained Model")
+                    selected_model = st.selectbox(
+                        "Select model to download",
+                        options=list(st.session_state.trained_models.keys()),
+                        key="download_select"
+                    )
+                    if selected_model:
+                        download_model(
+                            st.session_state.trained_models[selected_model],
+                            selected_model
+                        )
+                else:
+                    st.info("Train models first to see comparison and enable downloading")
         else:
             st.warning("Please upload data and select sampling method first")
-
 
 if __name__ == "__main__":
     main()
