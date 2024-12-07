@@ -1,4 +1,3 @@
-from enum import Enum
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.linear_model import ElasticNet
 from sklearn.ensemble import AdaBoostRegressor
@@ -9,7 +8,7 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.svm import SVR
 from sklearn.model_selection import cross_val_score
-
+import streamlit as st
 
 MODEL_MAPPING = {
     "Decision Tree Regressor": DecisionTreeRegressor,
@@ -37,34 +36,54 @@ def score_model(model, X, Y, cv):
     return mae, mae_std
 
 def decision_tree_view():
-    pass
+    st.slider("Max Depth", 1, 20, None, key="dt_max_depth")
+    st.slider("Min Samples Split", 2, 20, 2, key="dt_min_samples_split")
+    st.slider("Min Samples Leaf", 1, 20, 1, key="dt_min_samples_leaf")
 
 def elastic_net_view():
-    pass
+    st.slider("Alpha (Regularization Strength)", 0.0, 5.0, 1.0, 0.1, key="en_alpha")
+    st.slider("L1 Ratio", 0.0, 1.0, 0.5, 0.01, key="en_l1_ratio")
+    st.slider("Max Iterations", 100, 2000, 1000, 100, key="en_max_iter")
 
 def adaboost_view():
-    pass
+    st.slider("Number of Estimators", 1, 200, 50, 1, key="ab_n_estimators")
+    st.slider("Learning Rate", 0.01, 5.0, 1.0, 0.01, key="ab_learning_rate")
 
 def knn_view():
-    pass
+    st.slider("Number of Neighbors", 1, 20, 5, 1, key="knn_n_neighbors")
+    st.selectbox("Weights", ["uniform", "distance"], key="knn_weights")
+    st.selectbox("Algorithm", ["auto", "ball_tree", "kd_tree", "brute"], key="knn_algorithm")
 
 def lasso_view():
-    pass
+    st.slider("Regularization Parameter (alpha)", 0.01, 10.0, 1.0, 0.01, key="lasso_alpha")
+    st.slider("Maximum Iterations", 100, 1000, 1000, 100, key="lasso_max_iter")
 
 def ridge_view():
-    pass
+    st.slider("Regularization Parameter (alpha)", 0.01, 10.0, 1.0, 0.01, key="ridge_alpha")
+    st.slider("Maximum Iterations", 100, 1000, 1000, 100, key="ridge_max_iter")
 
 def linear_regression_view():
-    pass
+    st.text("Linear Regression does not have tunable hyperparameters.")
 
 def mlp_regressor_view():
-    pass
+    st.slider("Hidden Layer Sizes", 10, 200, 100, 10, key="mlp_hidden_layer_sizes")
+    st.selectbox("Activation Function", ["identity", "logistic", "tanh", "relu"], key="mlp_activation")
+    st.selectbox("Solver", ["adam", "lbfgs", "sgd"], key="mlp_solver")
+    st.selectbox("Learning Rate Schedule", ["constant", "invscaling", "adaptive"], key="mlp_learning_rate")
+    st.slider("Max Iterations", 100, 2000, 1000, 100, key="mlp_max_iter")
+    st.number_input("Random State", value=50, key="mlp_random_state")
 
 def random_forest_regressor_view():
-    pass
+    st.slider("Number of Trees", 10, 500, 100, 10, key="rf_n_estimators")
+    st.slider("Max Depth", 1, 50, None, key="rf_max_depth")
+    st.slider("Min Samples Split", 2, 10, 2, key="rf_min_samples_split")
+    st.slider("Min Samples Leaf", 1, 10, 1, key="rf_min_samples_leaf")
+    st.number_input("Random State", value=42, key="rf_random_state")
 
 def svr_view():
-    pass
+    st.selectbox("Kernel", ["linear", "poly", "rbf", "sigmoid"], key="svr_kernel")
+    st.slider("Regularization Parameter (C)", 0.01, 100.0, 1.0, 0.01, key="svr_C")
+    st.slider("Epsilon", 0.0, 1.0, 0.1, 0.01, key="svr_epsilon")
 
 MODEL_PARAMS = {
     "Decision Tree Regressor": decision_tree_view,

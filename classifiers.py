@@ -10,7 +10,6 @@ from sklearn.svm import SVC
 from sklearn.model_selection import cross_val_score
 import streamlit as st
 
-
 MODEL_MAPPING = {
     "Decision Tree": DecisionTreeClassifier,
     "Gaussian Naive Bayes": GaussianNB,
@@ -32,67 +31,65 @@ def create_model(model_type, **kwargs):
 def score_model(model, X, Y, cv):
     return cross_val_score(model, X, Y, cv=cv, scoring='accuracy').mean()
 
-def decision_tree_view():
-    with st.container():
-        test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2)
-        random_seed = st.slider("Random Seed", 1, 100, 50)
-        max_depth = st.slider("Max Depth", 1, 20, 5)
-        min_samples_split = st.slider("Min Samples Split", 2, 10, 2)
-        min_samples_leaf = st.slider("Min Samples Leaf", 1, 10, 1)
-    # st.session_state.
+def decision_tree_view(prefix="Decision_Tree"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 50, key=f"{prefix}_random_seed")
+    st.slider("Max Depth", 1, 20, 5, key=f"{prefix}_max_depth")
+    st.slider("Min Samples Split", 2, 10, 2, key=f"{prefix}_min_samples_split")
+    st.slider("Min Samples Leaf", 1, 10, 1, key=f"{prefix}_min_samples_leaf")
 
-def gaussian_nb_view():
-    test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key="test_size")
-    random_seed = st.slider("Random Seed", 1, 100, 7, key="random_seed")
-    var_smoothing = st.number_input("Var Smoothing (Log Scale)", min_value=-15, max_value=-1, value=-9, step=1, key="var_smoothing")
+def gaussian_nb_view(prefix="Gaussian_NB"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 7, key=f"{prefix}_random_seed")
+    st.number_input("Var Smoothing (Log Scale)", min_value=-15, max_value=-1, value=-9, step=1, key=f"{prefix}_var_smoothing")
 
-def adaboost_view():
-    test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key="test8")
-    random_seed = st.slider("Random Seed", 1, 100, 42, key="seed8")
-    C = st.slider("Regularization Parameter (C)", 0.1, 10.0, 1.0)
-    kernel = st.selectbox("Kernel Type", options=['linear', 'poly', 'rbf', 'sigmoid'])
+def adaboost_view(prefix="AdaBoost"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 42, key=f"{prefix}_random_seed")
+    st.slider("Regularization Parameter (C)", 0.1, 10.0, 1.0, key=f"{prefix}_C")
+    st.selectbox("Kernel Type", options=['linear', 'poly', 'rbf', 'sigmoid'], key=f"{prefix}_kernel")
 
-def knn_view():
-    test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key="keytest3")
-    random_seed = st.slider("Random Seed", 1, 100, 7, key="seed3")
-    n_neighbors = st.slider("Number of Neighbors", 1, 20, 5)
-    weights = st.selectbox("Weights", options=["uniform", "distance"])
-    algorithm = st.selectbox("Algorithm", options=["auto", "ball_tree", "kd_tree", "brute"])
+def knn_view(prefix="KNN"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 7, key=f"{prefix}_random_seed")
+    st.slider("Number of Neighbors", 1, 20, 5, key=f"{prefix}_n_neighbors")
+    st.selectbox("Weights", options=["uniform", "distance"], key=f"{prefix}_weights")
+    st.selectbox("Algorithm", options=["auto", "ball_tree", "kd_tree", "brute"], key=f"{prefix}_algorithm")
 
-def logistic_regression_view():
-    test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key="test4")
-    random_seed = st.slider("Random Seed", 1, 100, 7, key="seed4")
-    max_iter = st.slider("Max Iterations", 100, 500, 200)
-    solver = st.selectbox("Solver", options=["lbfgs", "liblinear", "sag", "saga", "newton-cg"])
-    C = st.number_input("Inverse of Regularization Strength", min_value=0.01, max_value=10.0, value=1.0)
+def logistic_regression_view(prefix="Logistic_Regression"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 7, key=f"{prefix}_random_seed")
+    st.slider("Max Iterations", 100, 500, 200, key=f"{prefix}_max_iter")
+    st.selectbox("Solver", options=["lbfgs", "liblinear", "sag", "saga", "newton-cg"], key=f"{prefix}_solver")
+    st.number_input("Inverse of Regularization Strength", min_value=0.01, max_value=10.0, value=1.0, key=f"{prefix}_C")
 
-def mlp_classifier_view():
-    test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key="test5")
-    random_seed = st.slider("Random Seed", 1, 100, 7, key="seed5")
-    hidden_layer_sizes = st.text_input("Hidden Layer Sizes (e.g., 65,32)", "65,32")
-    activation = st.selectbox("Activation Function", options=["identity", "logistic", "tanh", "relu"])
-    max_iter = st.slider("Max Iterations", 100, 500, 200, key="max5")
+def mlp_classifier_view(prefix="MLP_Classifier"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 7, key=f"{prefix}_random_seed")
+    st.text_input("Hidden Layer Sizes (e.g., 65,32)", "65,32", key=f"{prefix}_hidden_layer_sizes")
+    st.selectbox("Activation Function", options=["identity", "logistic", "tanh", "relu"], key=f"{prefix}_activation")
+    st.slider("Max Iterations", 100, 500, 200, key=f"{prefix}_max_iter")
 
-def perceptron_classifier_view():
-    test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key="test6")
-    random_seed = st.slider("Random Seed", 1, 100, 7, key="seed6")
-    max_iter = st.slider("Max Iterations", 100, 500, 200, key="max6")
-    eta0 = st.number_input("Initial Learning Rate", min_value=0.001, max_value=10.0, value=1.0)
-    tol = st.number_input("Tolerance for Stopping Criterion", min_value=0.0001, max_value=1.0, value=1e-3)
+def perceptron_classifier_view(prefix="Perceptron"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 7, key=f"{prefix}_random_seed")
+    st.slider("Max Iterations", 100, 500, 200, key=f"{prefix}_max_iter")
+    st.number_input("Initial Learning Rate", min_value=0.001, max_value=10.0, value=1.0, key=f"{prefix}_eta0")
+    st.number_input("Tolerance for Stopping Criterion", min_value=0.0001, max_value=1.0, value=1e-3, key=f"{prefix}_tol")
 
-def random_forest_view():
-    test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key="test7")
-    random_seed = st.slider("Random Seed", 1, 100, 7, key="seed7")
-    n_estimators = st.slider("Number of Estimators (Trees)", 10, 200, 100)
-    max_depth = st.slider("Max Depth of Trees", 1, 50, None)  # Allows None for no limit
-    min_samples_split = st.slider("Min Samples to Split a Node", 2, 10, 2)
-    min_samples_leaf = st.slider("Min Samples in Leaf Node", 1, 10, 1)
+def random_forest_view(prefix="Random_Forest"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 7, key=f"{prefix}_random_seed")
+    st.slider("Number of Estimators (Trees)", 10, 200, 100, key=f"{prefix}_n_estimators")
+    st.slider("Max Depth of Trees", 1, 50, None, key=f"{prefix}_max_depth")
+    st.slider("Min Samples to Split a Node", 2, 10, 2, key=f"{prefix}_min_samples_split")
+    st.slider("Min Samples in Leaf Node", 1, 10, 1, key=f"{prefix}_min_samples_leaf")
 
-def svm_view():
-    test_size = st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key="test8")
-    random_seed = st.slider("Random Seed", 1, 100, 42, key="seed8")
-    C = st.slider("Regularization Parameter (C)", 0.1, 10.0, 1.0)
-    kernel = st.selectbox("Kernel Type", options=['linear', 'poly', 'rbf', 'sigmoid'])
+def svm_view(prefix="SVM"):
+    st.slider("Test Size (fraction)", 0.1, 0.5, 0.2, key=f"{prefix}_test_size")
+    st.slider("Random Seed", 1, 100, 42, key=f"{prefix}_random_seed")
+    st.slider("Regularization Parameter (C)", 0.1, 10.0, 1.0, key=f"{prefix}_C")
+    st.selectbox("Kernel Type", options=['linear', 'poly', 'rbf', 'sigmoid'], key=f"{prefix}_kernel")
 
 MODEL_PARAMS = {
     "Decision Tree": decision_tree_view,
