@@ -194,8 +194,14 @@ def main():
     # Modify step 2 section
     elif st.session_state.step == 2:
         if st.session_state.DF is not None and st.session_state.cv is not None:
-            # Model type selection in sidebar
-            model_type = st.sidebar.radio("Select model type:", ["Regression", "Classification"])
+            # Model type selection using tab bar
+            chosen_type = stx.tab_bar(data=[
+                stx.TabBarItemData(id="regression", title="Regression", description="Train regression models"),
+                stx.TabBarItemData(id="classification", title="Classification", description="Train classification models"),
+            ], default="regression")
+            
+            # Set package based on selected tab
+            model_type = "Regression" if chosen_type == "regression" else "Classification"
             pkg = rgr if model_type == "Regression" else clf
             
             # Create tabs for training and downloading
@@ -204,9 +210,18 @@ def main():
             with train_tab:
                 with st.form(key="training_form"):
                     st.subheader("Model Parameters")
+                    
+                    # Add select all checkbox
+                    select_all = st.checkbox("Select All Models", key="select_all")
+                    
+                    st.divider()  # Visual separator
+                    
                     selected_models = []
                     for model_name in pkg.MODEL_MAPPING.keys():
-                        if st.checkbox(f"Train {model_name}", key=f"train_{model_name}"):
+                        # Individual model checkbox, checked if select_all is True
+                        if st.checkbox(f"Train {model_name}", 
+                                    value=select_all,  # Default to select_all value
+                                    key=f"train_{model_name}"):
                             selected_models.append(model_name)
                             with st.expander(f"{model_name} Parameters"):
                                 pkg.MODEL_PARAMS[model_name]()
